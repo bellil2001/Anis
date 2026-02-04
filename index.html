@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>أسئلة</title>
+
+  <style>
+    :root{
+      --paper:#fbfbfe;
+      --ink:#111827;
+      --muted:#6b7280;
+      --card:#ffffffd6;
+      --border:#e5e7eb;
+      --shadow: 0 18px 50px rgba(0,0,0,.12);
+
+      /* أكاديمي/غامض */
+      --accent:#4f46e5;   /* أزرق/بنفسجي */
+      --accent2:#db2777;  /* وردي خفيف */
+      --line: rgba(17,24,39,.08);
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      color:var(--ink);
+      padding:18px;
+
+      /* خلفية “أوراق + خطوط دفتر” */
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(79,70,229,.06) 0px,
+          rgba(79,70,229,.06) 1px,
+          transparent 1px,
+          transparent 28px
+        ),
+        radial-gradient(900px 600px at 20% 20%, rgba(219,39,119,.10), transparent 60%),
+        radial-gradient(900px 600px at 80% 30%, rgba(79,70,229,.10), transparent 60%),
+        linear-gradient(180deg, var(--paper), #ffffff);
+      overflow:hidden;
+    }
+
+    /* طبقة رسومات خفيفة: دفاتر/أقلام */
+    .doodles{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.55;
+      filter: blur(.0px);
+    }
+    .doodles span{
+      position:absolute;
+      font-size:22px;
+      opacity:.75;
+      transform: rotate(var(--r));
+      text-shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+
+    /* “كروت ورق” كبيرة كعناصر خلفية */
+    .sheet{
+      position:fixed;
+      width: 260px;
+      height: 340px;
+      background: rgba(255,255,255,.55);
+      border: 1px solid rgba(229,231,235,.9);
+      box-shadow: 0 18px 60px rgba(0,0,0,.08);
+      border-radius: 18px;
+      transform: rotate(var(--rot));
+      top: var(--top);
+      left: var(--left);
+      pointer-events:none;
+      backdrop-filter: blur(6px);
+    }
+    .sheet::before{
+      content:"";
+      position:absolute;
+      inset: 18px 18px 18px 18px;
+      border-radius: 12px;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(17,24,39,.06) 0px,
+          rgba(17,24,39,.06) 1px,
+          transparent 1px,
+          transparent 20px
+        );
+      opacity:.6;
+    }
+    .sheet::after{
+      content:"";
+      position:absolute;
+      top:18px;
+      bottom:18px;
+      width:4px;
+      right: 22px; /* RTL: خط الهامش على اليمين */
+      background: rgba(219,39,119,.22);
+      border-radius: 6px;
+    }
+
+    .wrap{
+      width:min(680px, 96vw);
+      position:relative;
+      z-index: 2;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.8);
+      box-shadow: var(--shadow);
+      border-radius:20px;
+      padding:26px 22px;
+      text-align:center;
+      backdrop-filter: blur(10px);
+    }
+
+    .q{
+      font-size:28px;
+      margin:6px 0 10px;
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+
+    .hint{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.7;
+    }
+
+    .btns{
+      margin-top:18px;
+      display:flex;
+      justify-content:center;
+      gap:12px;
+      flex-wrap:wrap;
+      position:relative;
+      padding-top:10px;
+      min-height:70px;
+    }
+
+    button{
+      border:0;
+      padding:12px 18px;
+      border-radius:14px;
+      font-size:16px;
+      font-weight:900;
+      cursor:pointer;
+      transition: transform .08s ease, filter .15s ease;
+      user-select:none;
+      min-width:120px;
+    }
+    button:active{ transform: scale(.98); }
+
+    .yes{
+      background: linear-gradient(180deg, var(--accent), #312e81);
+      color:white;
+      box-shadow: 0 14px 26px rgba(49,46,129,.18);
+    }
+    .yes:hover{ filter: brightness(1.03); }
+
+    .no{
+      background: rgba(255,255,255,.9);
+      color: var(--ink);
+      border: 2px solid rgba(79,70,229,.20);
+      box-shadow: 0 10px 18px rgba(79,70,229,.10);
+    }
+
+    /* زر “لا” يهرب في Q1/Q2 */
+    .no.flee{
+      position:absolute;
+      left:50%;
+      transform: translateX(calc(-50% - 140px));
+      top:10px;
+    }
+
+    /* Q3: ثابت */
+    .fixed .no,
+    .fixed .yes{
+      position:static !important;
+      transform:none !important;
+    }
+
+    .hidden{ display:none; }
+
+    .result{
+      text-align:center;
+      padding-top:2px;
+    }
+    .result .msg{
+      font-size:20px;
+      font-weight:900;
+      margin:8px 0 10px;
+    }
+
+    .video{
+      margin:14px auto 0;
+      border-radius:16px;
+      overflow:hidden;
+      aspect-ratio: 16 / 9;
+      width:100%;
+      max-width: 620px;
+      box-shadow: 0 16px 34px rgba(0,0,0,.12);
+      border: 1px solid rgba(255,255,255,.7);
+      background:#000;
+    }
+    iframe{ width:100%; height:100%; border:0; }
+
+    /* سطر صغير تحت، اختياري، بسيط */
+    .tiny{
+      margin-top:14px;
+      font-size:12px;
+      color: rgba(107,114,128,.85);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- أوراق كبيرة في الخلفية -->
+  <div class="sheet" style="--top: -40px; --left: -60px; --rot: -10deg;"></div>
+  <div class="sheet" style="--top: 55vh; --left: 78vw; --rot: 12deg;"></div>
+
+  <!-- رسومات أقلام/دفاتر -->
+  <div class="doodles" aria-hidden="true" id="doodles"></div>
+
+  <div class="wrap">
+    <div class="card">
+
+      <!-- شاشة الأسئلة -->
+      <div id="screenQuestion">
+        <div class="q" id="qText">...</div>
+        <p class="hint" id="qHint">...</p>
+
+        <div class="btns" id="btnArea">
+          <button class="yes" id="btnYes">نعم</button>
+          <button class="no flee" id="btnNo">لا</button>
+        </div>
+
+        <div class="tiny" id="tinyLine"></div>
+      </div>
+
+      <!-- شاشة النتيجة -->
+      <div id="screenResult" class="hidden result">
+        <div class="msg" id="resultMsg">...</div>
+
+        <div class="video hidden" id="videoBox">
+          <iframe id="yt"
+            src=""
+            allow="autoplay; encrypted-media"
+            allowfullscreen>
+          </iframe>
+        </div>
+
+        <div class="tiny"> </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- رسومات أكاديمية خفيفة (دفاتر/أقلام) ---
+    const doodles = document.getElementById("doodles");
+    const icons = ["🖊️","✏️","📓","📒","📘","📚","📎","🗒️"];
+    const N = 26;
+
+    for(let i=0;i<N;i++){
+      const s = document.createElement("span");
+      s.textContent = icons[Math.floor(Math.random()*icons.length)];
+      s.style.left = (Math.random()*100) + "vw";
+      s.style.top  = (Math.random()*100) + "vh";
+      s.style.setProperty("--r", (Math.random()*60 - 30) + "deg");
+      s.style.fontSize = (18 + Math.random()*14) + "px";
+      s.style.opacity = (0.35 + Math.random()*0.35).toFixed(2);
+      doodles.appendChild(s);
+    }
+
+    // ----------------------------
+    // سيناريو الأسئلة
+    // ----------------------------
+    const steps = [
+      {
+        q: "هل تريد الغموض؟",
+        hint: "اختر الإجابة.",
+        tiny: " ",
+        fleeNo: true,
+        onYes: 1,
+        onNo: 1
+      },
+      {
+        q: "هل أنا مزعج؟",
+        hint: "اختر الإجابة.",
+        tiny: " ",
+        fleeNo: true,
+        onYes: 2,
+        onNo: 2
+      },
+      {
+        q: "هل رد عليك الأستاذ أنيس؟",
+        hint: "اختر الإجابة.",
+        tiny: " ",
+        fleeNo: false,
+        onYes: "YES_RESULT",
+        onNo: "NO_RESULT"
+      }
+    ];
+
+    const vids = {
+      NO_RESULT:  "c8m2UeknWXk",
+      YES_RESULT: "a6zKohQnFJk"
+    };
+
+    const messages = {
+      NO_RESULT:  "حسنا سأتصل بك لاحقا لتذكيره",
+      YES_RESULT: "يلا اذن اتصل بي و خبرني"
+    };
+
+    // عناصر
+    const qScreen = document.getElementById("screenQuestion");
+    const rScreen = document.getElementById("screenResult");
+    const qText   = document.getElementById("qText");
+    const qHint   = document.getElementById("qHint");
+    const tinyLine= document.getElementById("tinyLine");
+    const btnYes  = document.getElementById("btnYes");
+    const btnNo   = document.getElementById("btnNo");
+    const btnArea = document.getElementById("btnArea");
+
+    const resultMsg = document.getElementById("resultMsg");
+    const videoBox  = document.getElementById("videoBox");
+    const yt        = document.getElementById("yt");
+
+    let current = 0;
+
+    function setStep(i){
+      current = i;
+      const s = steps[i];
+
+      qText.textContent = s.q;
+      qHint.textContent = s.hint;
+      tinyLine.textContent = s.tiny || " ";
+
+      if(s.fleeNo){
+        btnNo.classList.add("flee");
+        btnArea.classList.remove("fixed");
+        moveNo();
+      }else{
+        btnNo.classList.remove("flee");
+        btnArea.classList.add("fixed");
+        btnNo.style.left = "";
+        btnNo.style.top  = "";
+      }
+    }
+
+    function moveNo(){
+      if(!steps[current].fleeNo) return;
+
+      const areaRect = btnArea.getBoundingClientRect();
+      const btnRect  = btnNo.getBoundingClientRect();
+
+      const padding = 6;
+      const minX = padding;
+      const maxX = Math.max(padding, areaRect.width - btnRect.width - padding);
+      const minY = 8;
+      const maxY = 52;
+
+      const x = minX + Math.random() * (maxX - minX);
+      const y = minY + Math.random() * (maxY - minY);
+
+      btnNo.style.left = x + "px";
+      btnNo.style.top  = y + "px";
+      btnNo.style.transform = "none";
+    }
+
+    function showResult(key){
+      qScreen.classList.add("hidden");
+      rScreen.classList.remove("hidden");
+
+      resultMsg.textContent = messages[key];
+
+      const id = vids[key];
+      if(id){
+        yt.src = `https://www.youtube.com/embed/${id}?autoplay=1&mute=0&loop=1&playlist=${id}&controls=1&rel=0`;
+        videoBox.classList.remove("hidden");
+      }else{
+        yt.src = "";
+        videoBox.classList.add("hidden");
+      }
+    }
+
+    btnYes.addEventListener("click", () => {
+      const s = steps[current];
+      if(typeof s.onYes === "number") setStep(s.onYes);
+      else showResult(s.onYes);
+    });
+
+    btnNo.addEventListener("click", (e) => {
+      const s = steps[current];
+      if(s.fleeNo){
+        e.preventDefault();
+        moveNo();
+        return;
+      }
+      if(typeof s.onNo === "number") setStep(s.onNo);
+      else showResult(s.onNo);
+    });
+
+    btnNo.addEventListener("mouseenter", moveNo);
+    btnNo.addEventListener("touchstart", (e) => {
+      if(!steps[current].fleeNo) return;
+      e.preventDefault();
+      moveNo();
+    }, {passive:false});
+
+    setStep(0);
+  </script>
+</body>
+</html>
